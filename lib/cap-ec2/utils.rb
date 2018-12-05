@@ -66,6 +66,8 @@ module CapEC2
           set :ec2_access_key_id, config['access_key_id'] if config['access_key_id']
           set :ec2_secret_access_key, config['secret_access_key'] if config['secret_access_key']
           set :ec2_region, config['regions'] if config['regions']
+          set :ec2_role_assumption, config['ec2_role_assumption'] if config['ec2_role_assumption']
+          set :ec2_role_session_name, config['ec2_role_session_name'] if config['ec2_role_session_name']
 
           set :ec2_filter_by_status_ok?, config['filter_by_status_ok?'] if config['filter_by_status_ok?']
         end
@@ -73,10 +75,10 @@ module CapEC2
     end
 
     def get_regions(regions_array=nil)
-      unless regions_array.nil? || regions_array.empty?
-        return regions_array
-      else
+      if regions_array.nil? || regions_array.empty?
         fail "You must specify at least one EC2 region."
+      else
+        regions_array
       end
     end
 

@@ -13,34 +13,52 @@ module CapEC2
       end
     end
 
-    def ec2_connect(region=nil)
-      Aws::EC2::Client.new(
-        access_key_id: fetch(:ec2_access_key_id),
-        secret_access_key: fetch(:ec2_secret_access_key),
-        region: region
-      )
+    def ec2_connect(region = nil)
+      if fetch(:ec2_role_assumption).nil? || fetch(:ec2_role_session_name).nil?
+        Aws::EC2::Client.new(
+            access_key_id: fetch(:ec2_access_key_id),
+            secret_access_key: fetch(:ec2_secret_access_key),
+            region: region
+        )
+      else
+        role_credentials = Aws::AssumeRoleCredentials.new(
+            client: Aws::STS::Client.new(
+                access_key_id: fetch(:ec2_access_key_id),
+                secret_access_key: fetch(:ec2_secret_access_key),
+                region: region
+            ),
+            role_arn: fetch(:ec2_role_assumption),
+            role_session_name: fetch(:ec2_role_session_name),
+        )
+        Aws::EC2::Client.new(
+            credentials: role_credentials,
+            region: region
+        )
+      end
     end
 
     def status_table
       CapEC2::StatusTable.new(
-        defined_roles.map {|r| get_servers_for_role(r)}.flatten.uniq {|i| i.instance_id}
+          defined_roles
+              .map(&method(:get_servers_for_role))
+              .flatten.uniq(&:instance_id)
       )
     end
 
     def server_names
-      puts defined_roles.map {|r| get_servers_for_role(r)}
-                   .flatten
-                   .uniq {|i| i.instance_id}
-                   .map {|i| tag_value(i, 'Name')}
-                   .join("\n")
+      puts defined_roles.map(&method(:get_servers_for_role))
+               .flatten
+               .uniq(&:instance_id)
+               .map {|i| tag_value(i, 'Name')}
+               .join("\n")
     end
 
     def instance_ids
-      puts defined_roles.map {|r| get_servers_for_role(r)}
-                   .flatten
-                   .uniq {|i| i.instance_id}
-                   .map {|i| i.instance_id}
-                   .join("\n")
+      puts defined_roles.map(&method(:get_servers_for_role))
+               .flatten
+               .uniq(&:instance_id)
+               .map(&:instance_id)
+               .join("\n")
     end
 
     def defined_roles
