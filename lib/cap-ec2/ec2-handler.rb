@@ -13,27 +13,40 @@ module CapEC2
       end
     end
 
+    def ec2_common_connect(region)
+      Aws::EC2::Client.new(
+          access_key_id: fetch(:ec2_access_key_id),
+          secret_access_key: fetch(:ec2_secret_access_key),
+          region: region
+      )
+    end
+
+    def ec2_role_assumption_connect(region)
+      role_credentials = Aws::AssumeRoleCredentials.new(
+          client: Aws::STS::Client.new(
+              access_key_id: fetch(:ec2_access_key_id),
+              secret_access_key: fetch(:ec2_secret_access_key),
+              region: region
+          ),
+          role_arn: fetch(:ec2_role_assumption),
+          role_session_name: fetch(:ec2_role_session_name),
+      )
+      Aws::EC2::Client.new(
+          credentials: role_credentials,
+          region: region
+      )
+    end
+
     def ec2_connect(region = nil)
       if fetch(:ec2_role_assumption).nil? || fetch(:ec2_role_session_name).nil?
-        Aws::EC2::Client.new(
-            access_key_id: fetch(:ec2_access_key_id),
-            secret_access_key: fetch(:ec2_secret_access_key),
-            region: region
-        )
+        ec2_common_connect(region)
       else
-        role_credentials = Aws::AssumeRoleCredentials.new(
-            client: Aws::STS::Client.new(
-                access_key_id: fetch(:ec2_access_key_id),
-                secret_access_key: fetch(:ec2_secret_access_key),
-                region: region
-            ),
-            role_arn: fetch(:ec2_role_assumption),
-            role_session_name: fetch(:ec2_role_session_name),
-        )
-        Aws::EC2::Client.new(
-            credentials: role_credentials,
-            region: region
-        )
+        begin
+          ec2_role_assumption_connect(region)
+        rescue
+          puts 'had role assumption but key pair does not match'
+          ec2_common_connect(region)
+        end
       end
     end
 
